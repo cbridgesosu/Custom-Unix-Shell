@@ -37,7 +37,7 @@ struct command_line *parse_input()
     } else if (!strcmp(token, ">"))
     {
       curr_command->output_file = strdup(strtok(NULL, " \n"));
-    } else if(strcmp(token, "&"))
+    } else if(!strcmp(token, "&"))
     {
       curr_command->is_bg = true;
     } else
@@ -58,7 +58,8 @@ int main()
   {
     curr_command = parse_input();
 
+    if (!strcmp(curr_command->argv[0], "exit"))
+      return EXIT_SUCCESS;
   }
-  return EXIT_SUCCESS;
 
 }
