@@ -54,6 +54,7 @@ struct command_line *parse_input()
 int main()
 {
   struct command_line *curr_command;
+  int last_status = 0;
 
   while(true)
   {
@@ -81,6 +82,14 @@ int main()
       {
         chdir(curr_command->argv[1]);
       }
+    }
+    else if (!strcmp(curr_command->argv[0], "status"))
+    {
+      printf("exit value %d\n", last_status);
+    }
+    else
+    {
+      last_status = 3;
     }
   }
 
