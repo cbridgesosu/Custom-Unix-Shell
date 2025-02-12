@@ -5,6 +5,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 #define INPUT_LENGTH 2048
 #define MAX_ARGS 512
@@ -111,6 +112,27 @@ int execute_process(struct command_line *command)
   switch (spawnpid) 
   {
     case 0:
+      if (command->output_file)
+      {
+        int outfd = open(command->output_file, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+        if (outfd == -1)
+        {
+          printf("cannot open %s for output\n", command->output_file);
+          exit(1);
+        }
+        dup2(outfd, 1);
+      }
+      if (command->input_file)
+      {
+        int infd = open(command->input_file, O_RDONLY);
+        if (infd == -1)
+        {
+          printf("cannot open %s for input\n", command->input_file);
+          exit(1);
+        }
+        dup2(infd, 0);
+      }
+ 
       execvp(command->argv[0], command->argv);
       perror("execv");
       exit(1);
@@ -122,7 +144,8 @@ int execute_process(struct command_line *command)
         
         if (WIFEXITED(childStatus))
         {
-          printf("Child exited normally with status %d\n", WEXITSTATUS(childStatus));
+//          printf("Child exited normally with status %d\n", WEXITSTATUS(childStatus));
+           return 1; 
         }
         else
         {
