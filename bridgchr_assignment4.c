@@ -21,7 +21,7 @@ struct command_line
 };
 
 int execute_process(struct command_line *command, pid_t *bgpids);
-void checkbg(pid_t *bgpids);
+int checkbg(pid_t *bgpids);
 
 struct command_line *parse_input()
 {
@@ -65,7 +65,11 @@ int main()
 
   while(true)
   {
-    checkbg(bgpids);
+    int bg_status = checkbg(bgpids);
+    if (bg_status != -1) 
+    {
+      last_status = bg_status; 
+    }
 
     // prompts user and parses input
     curr_command = parse_input();
@@ -150,7 +154,7 @@ int execute_process(struct command_line *command, pid_t *bgpids)
         if (WIFEXITED(childStatus))
         {
 //          printf("Child exited normally with status %d\n", WEXITSTATUS(childStatus));
-           return 1; 
+           return WEXITSTATUS(childStatus); 
         }
         else
         {
@@ -178,10 +182,11 @@ int execute_process(struct command_line *command, pid_t *bgpids)
 }
 
 
-void checkbg(pid_t *bgpids)
+int checkbg(pid_t *bgpids)
 {
   //printf("Active PIDs:\n");
   //fflush(stdout);
+  int bg_status = -1;
 
   int childStatus;
   for (int i = 0; i < 25; i++)
@@ -197,17 +202,20 @@ void checkbg(pid_t *bgpids)
 //          printf("Child exited normally with status %d\n", WEXITSTATUS(childStatus));
           printf("background pid %d is done: terminated by signal %d\n", bgpids[i], WEXITSTATUS(childStatus));
           bgpids[i] = 0;
+          bg_status = WEXITSTATUS(childStatus);
         }
         else
         {
           printf("background pid %d is done: terminated by signal %d\n", bgpids[i], WTERMSIG(childStatus));
 //          printf("Child exited abnormally due to signal %d\n", WTERMSIG(childStatus));
           bgpids[i] = 0;
+          bg_status = WTERMSIG(childStatus);
         }
  
       }
 
     }
   }
+  return bg_status;
 }
 
