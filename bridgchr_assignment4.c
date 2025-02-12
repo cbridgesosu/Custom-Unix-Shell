@@ -2,7 +2,9 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 #define INPUT_LENGTH 2048
 #define MAX_ARGS 512
@@ -17,6 +19,7 @@ struct command_line
   bool is_bg;
 };
 
+int execute_process(struct command_line *command);
 
 struct command_line *parse_input()
 {
@@ -91,8 +94,51 @@ int main()
     }
     else // handles other cmds
     {
-      last_status = 3;
+      last_status = execute_process(curr_command);
     }
   }
 
+}
+
+
+int execute_process(struct command_line *command)
+{
+  pid_t spawnpid = -5;
+
+  spawnpid = fork();
+  int childStatus;
+
+  switch (spawnpid) 
+  {
+    case 0:
+      execvp(command->argv[0], command->argv);
+      perror("execv");
+      exit(1);
+      break;
+    default:
+      if (!command->is_bg)
+      {
+        waitpid(spawnpid, &childStatus, 0);
+        
+        if (WIFEXITED(childStatus))
+        {
+          printf("Child exited normally with status %d\n", WEXITSTATUS(childStatus));
+        }
+        else
+        {
+          printf("Child exited abnormally due to signal %d\n", WTERMSIG(childStatus));
+        }
+      }
+      else
+      {
+        printf("background pid is %d\n", spawnpid);
+        fflush(stdout);
+      
+        waitpid(spawnpid, &childStatus, WNOHANG);
+      }
+
+      break;
+  }
+
+ return 0; 
 }
