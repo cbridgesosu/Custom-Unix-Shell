@@ -20,7 +20,8 @@ struct command_line
   bool is_bg;
 };
 
-int execute_process(struct command_line *command);
+int execute_process(struct command_line *command, pid_t *bgpids);
+void checkbg(pid_t *bgpids);
 
 struct command_line *parse_input()
 {
@@ -60,8 +61,12 @@ int main()
   struct command_line *curr_command;
   int last_status = 0; //exit status of most recent process
 
+  pid_t bgpids[25] = {0};
+
   while(true)
   {
+    checkbg(bgpids);
+
     // prompts user and parses input
     curr_command = parse_input();
 
@@ -95,14 +100,14 @@ int main()
     }
     else // handles other cmds
     {
-      last_status = execute_process(curr_command);
+      last_status = execute_process(curr_command, bgpids);
     }
   }
 
 }
 
 
-int execute_process(struct command_line *command)
+int execute_process(struct command_line *command, pid_t *bgpids)
 {
   pid_t spawnpid = -5;
 
@@ -156,7 +161,13 @@ int execute_process(struct command_line *command)
       {
         printf("background pid is %d\n", spawnpid);
         fflush(stdout);
-      
+     
+        int i =0;
+        while (bgpids[i] != 0)
+        {
+          i++;
+        }
+        bgpids[i] = spawnpid;
         waitpid(spawnpid, &childStatus, WNOHANG);
       }
 
@@ -165,3 +176,38 @@ int execute_process(struct command_line *command)
 
  return 0; 
 }
+
+
+void checkbg(pid_t *bgpids)
+{
+  //printf("Active PIDs:\n");
+  //fflush(stdout);
+
+  int childStatus;
+  for (int i = 0; i < 25; i++)
+  {
+    if (bgpids[i] != 0)
+    {
+      //printf("%d\n", bgpids[i]);
+      //fflush(stdout);
+      if (waitpid(bgpids[i], &childStatus, WNOHANG) != 0)
+      {
+        if (WIFEXITED(childStatus))
+        {
+//          printf("Child exited normally with status %d\n", WEXITSTATUS(childStatus));
+          printf("background pid %d is done: terminated by signal %d\n", bgpids[i], WEXITSTATUS(childStatus));
+          bgpids[i] = 0;
+        }
+        else
+        {
+          printf("background pid %d is done: terminated by signal %d\n", bgpids[i], WTERMSIG(childStatus));
+//          printf("Child exited abnormally due to signal %d\n", WTERMSIG(childStatus));
+          bgpids[i] = 0;
+        }
+ 
+      }
+
+    }
+  }
+}
+
