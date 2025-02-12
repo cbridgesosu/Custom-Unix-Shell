@@ -72,7 +72,7 @@ int main()
     {
       return EXIT_SUCCESS;
     }
-    else if (!strcmp(curr_command->argv[0], "#")) // handles comments
+    else if (!strncmp(curr_command->argv[0], "#", 1)) // handles comments
     {
       continue; 
     }
