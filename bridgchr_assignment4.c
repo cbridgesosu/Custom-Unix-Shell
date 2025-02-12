@@ -54,40 +54,42 @@ struct command_line *parse_input()
 int main()
 {
   struct command_line *curr_command;
-  int last_status = 0;
+  int last_status = 0; //exit status of most recent process
 
   while(true)
   {
+    // prompts user and parses input
     curr_command = parse_input();
 
-    if (curr_command->argv[0] == NULL){
+    if (curr_command->argv[0] == NULL) // handles empty line
+    {
      continue; 
     }
-    else if (!strcmp(curr_command->argv[0], "exit"))
+    else if (!strcmp(curr_command->argv[0], "exit")) // handles exit cmd
     {
       return EXIT_SUCCESS;
     }
-    else if (!strcmp(curr_command->argv[0], "#"))
+    else if (!strcmp(curr_command->argv[0], "#")) // handles comments
     {
       continue; 
     }
-    else if (!strcmp(curr_command->argv[0], "cd"))
+    else if (!strcmp(curr_command->argv[0], "cd")) // handles cd cmd
     {
-      if (curr_command->argv[1] == NULL)
+      if (curr_command->argv[1] == NULL) // if no filepath
       {
         char *home_directory = getenv("HOME");
         chdir(home_directory);
       }
-      else
+      else // if filepath provided
       {
         chdir(curr_command->argv[1]);
       }
     }
-    else if (!strcmp(curr_command->argv[0], "status"))
+    else if (!strcmp(curr_command->argv[0], "status")) // handles status cmd
     {
       printf("exit value %d\n", last_status);
     }
-    else
+    else // handles other cmds
     {
       last_status = 3;
     }
