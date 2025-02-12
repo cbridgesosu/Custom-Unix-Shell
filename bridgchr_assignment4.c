@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define INPUT_LENGTH 2048
 #define MAX_ARGS 512
@@ -68,6 +69,18 @@ int main()
     else if (!strcmp(curr_command->argv[0], "#"))
     {
       continue; 
+    }
+    else if (!strcmp(curr_command->argv[0], "cd"))
+    {
+      if (curr_command->argv[1] == NULL)
+      {
+        char *home_directory = getenv("HOME");
+        chdir(home_directory);
+      }
+      else
+      {
+        chdir(curr_command->argv[1]);
+      }
     }
   }
 
