@@ -59,7 +59,13 @@ int main()
     curr_command = parse_input();
 
     if (!strcmp(curr_command->argv[0], "exit"))
+    {
       return EXIT_SUCCESS;
+    }
+    if (!strcmp(curr_command->argv[0], "#"))
+    {
+      continue; 
+    }
   }
 
 }
