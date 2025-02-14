@@ -196,7 +196,7 @@ int execute_process(struct command_line *command, pid_t *bgpids)
       break;
     default:
       {
-      if (!command->is_bg) // || !bg_mode)
+      if (!command->is_bg || !bg_mode)
       {
         int child_pid = waitpid(spawnpid, &childStatus, 0);
 
