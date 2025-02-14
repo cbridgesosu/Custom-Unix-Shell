@@ -1,3 +1,4 @@
+#include <signal.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -18,10 +19,15 @@ struct command_line
   char *input_file;
   char *output_file;
   bool is_bg;
+
+  struct sigaction *sigint_enable;
+  struct sigaction *sigint_disable;
 };
 
 int execute_process(struct command_line *command, pid_t *bgpids);
 int checkbg(pid_t *bgpids);
+void handle_sigint();
+void child_handle_sigint();
 
 struct command_line *parse_input()
 {
@@ -58,6 +64,13 @@ struct command_line *parse_input()
 
 int main()
 {
+  struct sigaction sigint_action = {0};
+  struct sigaction sigint_default = {0};
+  sigint_action.sa_handler = SIG_IGN;
+  sigfillset(&sigint_action.sa_mask);
+  sigint_action.sa_flags = 0;
+  sigaction(SIGINT, &sigint_action, &sigint_default);
+
   struct command_line *curr_command;
   int last_status = 0; //exit status of most recent process
 
@@ -73,6 +86,9 @@ int main()
 
     // prompts user and parses input
     curr_command = parse_input();
+    curr_command->sigint_disable = &sigint_action;
+    curr_command->sigint_enable = & sigint_default;
+
 
     if (curr_command->argv[0] == NULL) // handles empty line
     {
@@ -117,10 +133,17 @@ int execute_process(struct command_line *command, pid_t *bgpids)
 
   spawnpid = fork();
   int childStatus;
-
-  switch (spawnpid) 
+    
+ switch (spawnpid) 
   {
     case 0:
+      {
+      if (!command->is_bg)
+      {
+        command->sigint_disable->sa_handler = SIG_DFL;
+        sigaction(SIGINT, command->sigint_enable, NULL);
+      }
+
       if (command->output_file)
       {
         int outfd = open(command->output_file, O_WRONLY | O_CREAT | O_TRUNC, 0640);
@@ -149,16 +172,19 @@ int execute_process(struct command_line *command, pid_t *bgpids)
     default:
       if (!command->is_bg)
       {
-        waitpid(spawnpid, &childStatus, 0);
-        
-        if (WIFEXITED(childStatus))
+        int child_pid = waitpid(spawnpid, &childStatus, 0);
+
+       if (WIFEXITED(childStatus))
         {
-//          printf("Child exited normally with status %d\n", WEXITSTATUS(childStatus));
-           return WEXITSTATUS(childStatus); 
+          int status = WEXITSTATUS(childStatus);
+          //printf("Child exited normally with status %d\n", status);
+           return status; 
         }
-        else
+       else if (WIFSIGNALED(childStatus))
         {
-          printf("Child exited abnormally due to signal %d\n", WTERMSIG(childStatus));
+          int status = WTERMSIG(childStatus);
+          printf("terminated by signal %d\n", status);
+          return status;
         }
       }
       else
@@ -174,7 +200,7 @@ int execute_process(struct command_line *command, pid_t *bgpids)
         bgpids[i] = spawnpid;
         waitpid(spawnpid, &childStatus, WNOHANG);
       }
-
+      }
       break;
   }
 
@@ -218,4 +244,17 @@ int checkbg(pid_t *bgpids)
   }
   return bg_status;
 }
+
+
+void handle_sigint()
+{
+  // write(STDOUT_FILENO, "parent caught signint\n", 22);
+}
+
+void child_handle_sigint()
+{
+  write(STDOUT_FILENO, "child caught signint\n", 15);
+  exit(2);
+}
+
 
