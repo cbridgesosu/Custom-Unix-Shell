@@ -78,6 +78,7 @@ int main()
 
   while(true)
   {
+    sleep(1);
     int bg_status = checkbg(bgpids);
     if (bg_status != -1) 
     {
