@@ -11,6 +11,8 @@
 #define INPUT_LENGTH 2048
 #define MAX_ARGS 512
 
+bool bg_mode = true;
+bool switch_sigtstp = false;
 
 struct command_line
 {
@@ -21,13 +23,15 @@ struct command_line
   bool is_bg;
 
   struct sigaction *sigint_enable;
-  struct sigaction *sigint_disable;
+  
+  struct sigaction *sigtstp_control;
 };
 
 int execute_process(struct command_line *command, pid_t *bgpids);
 int checkbg(pid_t *bgpids);
-void handle_sigint();
+void handle_sigtstp();
 void child_handle_sigint();
+void inform_sigtstp();
 
 struct command_line *parse_input()
 {
@@ -65,17 +69,22 @@ struct command_line *parse_input()
 int main()
 {
   struct sigaction sigint_action = {0};
-  struct sigaction sigint_default = {0};
   sigint_action.sa_handler = SIG_IGN;
   sigfillset(&sigint_action.sa_mask);
   sigint_action.sa_flags = 0;
-  sigaction(SIGINT, &sigint_action, &sigint_default);
+  sigaction(SIGINT, &sigint_action, NULL);
+
+  struct sigaction sigtstp_control = {0};
+  sigtstp_control.sa_handler = handle_sigtstp;
+  sigfillset(&sigtstp_control.sa_mask);
+  sigtstp_control.sa_flags = 0;
+  sigaction(SIGTSTP, &sigtstp_control, NULL);
 
   struct command_line *curr_command;
   int last_status = 0; //exit status of most recent process
 
   pid_t bgpids[25] = {0};
-
+int i = 0;
   while(true)
   {
     int bg_status = checkbg(bgpids);
@@ -84,10 +93,15 @@ int main()
       last_status = bg_status; 
     }
 
+    if (switch_sigtstp)
+    {
+      inform_sigtstp(); 
+    }
+
     // prompts user and parses input
     curr_command = parse_input();
-    curr_command->sigint_disable = &sigint_action;
-    curr_command->sigint_enable = & sigint_default;
+    curr_command->sigint_enable = &sigint_action;
+    curr_command->sigtstp_control = &sigtstp_control;
 
 
     if (curr_command->argv[0] == NULL) // handles empty line
@@ -138,9 +152,12 @@ int execute_process(struct command_line *command, pid_t *bgpids)
   {
     case 0:
       {
+      command->sigtstp_control->sa_handler = SIG_IGN;
+      sigaction(SIGTSTP, command->sigtstp_control, NULL);
+
       if (!command->is_bg)
       {
-        command->sigint_disable->sa_handler = SIG_DFL;
+        command->sigint_enable->sa_handler = SIG_DFL;
         sigaction(SIGINT, command->sigint_enable, NULL);
       }
 
@@ -153,6 +170,10 @@ int execute_process(struct command_line *command, pid_t *bgpids)
           exit(1);
         }
         dup2(outfd, 1);
+      } else if (command->is_bg)
+      {
+        int outfd = open("/dev/null", O_WRONLY, 0640);
+        dup2(outfd, 1);
       }
       if (command->input_file)
       {
@@ -163,6 +184,10 @@ int execute_process(struct command_line *command, pid_t *bgpids)
           exit(1);
         }
         dup2(infd, 0);
+      } else if (command->is_bg)
+      {
+        int infd = open("/dev/null", O_RDONLY);
+        dup2(infd, 0);
       }
  
       execvp(command->argv[0], command->argv);
@@ -170,7 +195,8 @@ int execute_process(struct command_line *command, pid_t *bgpids)
       exit(1);
       break;
     default:
-      if (!command->is_bg)
+      {
+      if (!command->is_bg) // || !bg_mode)
       {
         int child_pid = waitpid(spawnpid, &childStatus, 0);
 
@@ -201,6 +227,7 @@ int execute_process(struct command_line *command, pid_t *bgpids)
         waitpid(spawnpid, &childStatus, WNOHANG);
       }
       }
+      }
       break;
   }
 
@@ -225,7 +252,6 @@ int checkbg(pid_t *bgpids)
       {
         if (WIFEXITED(childStatus))
         {
-//          printf("Child exited normally with status %d\n", WEXITSTATUS(childStatus));
           printf("background pid %d is done: terminated by signal %d\n", bgpids[i], WEXITSTATUS(childStatus));
           bgpids[i] = 0;
           bg_status = WEXITSTATUS(childStatus);
@@ -233,7 +259,6 @@ int checkbg(pid_t *bgpids)
         else
         {
           printf("background pid %d is done: terminated by signal %d\n", bgpids[i], WTERMSIG(childStatus));
-//          printf("Child exited abnormally due to signal %d\n", WTERMSIG(childStatus));
           bgpids[i] = 0;
           bg_status = WTERMSIG(childStatus);
         }
@@ -246,15 +271,29 @@ int checkbg(pid_t *bgpids)
 }
 
 
-void handle_sigint()
+void handle_sigtstp()
 {
-  // write(STDOUT_FILENO, "parent caught signint\n", 22);
+  switch_sigtstp = true;
 }
 
-void child_handle_sigint()
+void inform_sigtstp()
 {
-  write(STDOUT_FILENO, "child caught signint\n", 15);
-  exit(2);
+  switch_sigtstp = false;
+
+  if (bg_mode)
+  {
+    bg_mode = false;
+    char *message = "\nEntering foreground-only mode (& is now ignored)\n";
+    write(STDOUT_FILENO, message, strlen(message));
+    fflush(stdout);
+  }
+  else
+  {
+    bg_mode = true;
+    char *message = "\nExiting foreground-only mode\n";
+    write(STDOUT_FILENO, message, strlen(message));
+    fflush(stdout);
+  
+  }
+ 
 }
-
-
