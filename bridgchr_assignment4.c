@@ -199,6 +199,7 @@ int execute_process(struct command_line *command, pid_t *bgpids)
         }
         bgpids[i] = spawnpid;
         waitpid(spawnpid, &childStatus, WNOHANG);
+        sleep(1);
       }
       }
       break;
