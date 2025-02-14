@@ -252,7 +252,7 @@ int checkbg(pid_t *bgpids)
       {
         if (WIFEXITED(childStatus))
         {
-          printf("background pid %d is done: terminated by signal %d\n", bgpids[i], WEXITSTATUS(childStatus));
+          printf("background pid %d is done: exit value %d\n", bgpids[i], WEXITSTATUS(childStatus));
           bgpids[i] = 0;
           bg_status = WEXITSTATUS(childStatus);
         }
