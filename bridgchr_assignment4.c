@@ -41,7 +41,7 @@ void inform_sigtstp();
  */
 struct command_line *parse_input()
 {
-  char input[INPUT_LENGTH];
+  char input[INPUT_LENGTH] = {0};
   struct command_line *curr_command = (struct command_line *)calloc(1, sizeof(struct command_line));
 
   // get input
